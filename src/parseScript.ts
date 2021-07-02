@@ -16,8 +16,10 @@ export enum ScriptComponentType {
     WAIT,
     LABEL,
     BRANCH,
+    BRANCH_QUEST_NOT_CLEAR,
     BGM,
     BGM_STOP,
+    VOICE,
     BACKGROUND,
     FLAG,
     DIALOGUE_TEXT,
@@ -101,9 +103,9 @@ export type DialogueSpeaker = {
 
 export type ScriptDialogue = {
     type: ScriptComponentType.DIALOGUE;
-    speaker: DialogueSpeaker;
+    speaker?: DialogueSpeaker;
     lines: string[];
-    components: DialogueChildComponent[];
+    components: DialogueChildComponent[][];
     voice?: ScriptSound;
 };
 
@@ -158,6 +160,12 @@ export type ScriptBranch = {
     };
 };
 
+export type ScriptBranchQuestNotClear = {
+    type: ScriptComponentType.BRANCH_QUEST_NOT_CLEAR;
+    labelName: string;
+    questId: number;
+};
+
 export type ScriptBgm = {
     type: ScriptComponentType.BGM;
     bgm: ScriptSound;
@@ -169,6 +177,11 @@ export type ScriptBgmStop = {
     type: ScriptComponentType.BGM_STOP;
     bgm: ScriptSound;
     fadeoutTime: number;
+};
+
+export type ScriptVoice = {
+    type: ScriptComponentType.VOICE;
+    voice: ScriptSound;
 };
 
 export type ScriptBackground = {
@@ -199,8 +212,10 @@ export type ScriptBracketComponent =
     | ScriptWait
     | ScriptLabel
     | ScriptBranch
+    | ScriptBranchQuestNotClear
     | ScriptBgm
     | ScriptBgmStop
+    | ScriptVoice
     | ScriptBackground
     | ScriptFlag;
 
@@ -483,6 +498,12 @@ function parseBracketComponent(
                     labelName: parameters[1],
                 };
             }
+        case "branchQuestNotClear":
+            return {
+                type: ScriptComponentType.BRANCH_QUEST_NOT_CLEAR,
+                labelName: parameters[1],
+                questId: parseInt(parameters[2]),
+            };
         case "bgm":
             return {
                 type: ScriptComponentType.BGM,
@@ -507,6 +528,15 @@ function parseBracketComponent(
                     `${AssetHost}/${region}/Audio/${parameters[1]}/${parameters[1]}.mp3`
                 ),
                 fadeoutTime: parseFloat(parameters[2]),
+            };
+        case "voice":
+            const splitted = parameters[1].split("_"),
+                folder = `Servants_${splitted[0]}`,
+                fileName = splitted.slice(1).join("_"),
+                audioUrl = `${AssetHost}/${region}/Audio/${folder}/${fileName}.mp3`;
+            return {
+                type: ScriptComponentType.VOICE,
+                voice: getBgmObject(fileName, audioUrl),
             };
         case "scene":
             return {
@@ -536,7 +566,7 @@ export default function parseScript(region: Region, script: string): ScriptInfo 
 
     let dialogue: ScriptDialogue = {
         type: ScriptComponentType.DIALOGUE,
-        speaker: { name: "", components: [] },
+        speaker: undefined,
         lines: [],
         components: [],
         voice: undefined,
@@ -554,7 +584,7 @@ export default function parseScript(region: Region, script: string): ScriptInfo 
     };
 
     const resetDialogueVariables = () => {
-        dialogue.speaker = { name: "", components: [] };
+        dialogue.speaker = undefined;
         dialogue.voice = undefined;
         dialogue.lines = [];
         dialogue.components = [];
@@ -576,17 +606,17 @@ export default function parseScript(region: Region, script: string): ScriptInfo 
                 const parameters = parseParameter(line);
                 switch (parameters[0]) {
                     case "k":
-                        dialogue.components = dialogue.lines
-                            .map((line) => parseDialogueLine(region, line))
-                            .flat();
+                        dialogue.components = dialogue.lines.map((line) =>
+                            parseDialogueLine(region, line)
+                        );
                         if (parserState.choice) {
                             choice.results.push({ ...dialogue });
                         } else {
                             components.push({ ...dialogue });
                         }
 
-                        resetDialogueVariables();
                         parserState.dialogue = false;
+                        resetDialogueVariables();
                         break;
                     case "tVoice":
                         const folder = parameters[1];
@@ -595,7 +625,7 @@ export default function parseScript(region: Region, script: string): ScriptInfo 
                         dialogue.voice = getBgmObject(fileName, audioUrl);
                         break;
                     default:
-                        if (parserState.dialogue) {
+                        if (parserState.dialogue || line[0] !== "[") {
                             dialogue.lines.push(line);
                             break;
                         } else {
@@ -612,8 +642,8 @@ export default function parseScript(region: Region, script: string): ScriptInfo 
                 }
                 break;
             case "＠":
-                dialogue.speaker = parseDialogueSpeaker(region, line);
                 parserState.dialogue = true;
+                dialogue.speaker = parseDialogueSpeaker(region, line);
                 break;
             case "？":
                 if (line[1] === "！") {
@@ -642,10 +672,7 @@ export default function parseScript(region: Region, script: string): ScriptInfo 
             case undefined:
                 break;
             default:
-                if (parserState.dialogue) {
-                    dialogue.lines.push(line);
-                    break;
-                }
+                dialogue.lines.push(line);
         }
     }
 

@@ -561,7 +561,7 @@ function parseBracketComponent(
     }
 }
 
-export function parseScript(region: Region, script: string): ScriptInfo {
+export default function parseScript(region: Region, script: string): ScriptInfo {
     let components = [] as ScriptComponent[];
 
     let dialogue: ScriptDialogue = {

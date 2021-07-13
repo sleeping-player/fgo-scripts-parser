@@ -98,7 +98,7 @@ export type DialogueChildComponent =
 export type DialogueSpeaker = {
     name: string;
     speakerCode?: string;
-    components: DialogueChildComponent[];
+    // components: DialogueChildComponent[];
 };
 
 export type ScriptDialogue = {
@@ -399,7 +399,7 @@ function parseDialogueSpeaker(region: Region, line: string): DialogueSpeaker {
     return {
         name,
         speakerCode,
-        components: parseDialogueLine(region, name),
+        // components: parseDialogueLine(region, name),
     };
 }
 
@@ -619,10 +619,10 @@ export default function parseScript(region: Region, script: string): ScriptInfo 
                         resetDialogueVariables();
                         break;
                     case "tVoice":
-                        const folder = parameters[1];
+                        /* const folder = parameters[1];
                         const fileName = parameters[2];
                         const audioUrl = `${AssetHost}/${region}/Audio/${folder}/${fileName}.mp3`;
-                        dialogue.voice = getBgmObject(fileName, audioUrl);
+                        dialogue.voice = getBgmObject(fileName, audioUrl); */
                         break;
                     default:
                         if (parserState.dialogue || line[0] !== "[") {
@@ -636,7 +636,21 @@ export default function parseScript(region: Region, script: string): ScriptInfo 
                             if (parserState.choice) {
                                 choice.results.push(parsedComponent);
                             } else {
-                                components.push(parsedComponent);
+                                switch (parameters[0]) {
+                                    case "branchQuestNotClear":
+                                        components.push(parsedComponent);
+										break;
+                                    case "branch":
+                                        components.push(parsedComponent);
+										break;
+                                    case "label":
+                                        components.push(parsedComponent);
+										break;
+                                    default:
+                                    // components.push(parsedComponent);
+                                }
+
+
                             }
                         }
                 }
